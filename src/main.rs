@@ -1,9 +1,11 @@
 
 use curl::easy::Easy;
-use std::{env, fs};
-use std::env::args;
-use std::process::exit;
 
+use std::env;
+use std::env::args;
+use std::fs::File;
+use std::io::Read;
+use std::process::exit;
 
 fn main() {
     let args: Vec<_> = args().collect();
@@ -13,22 +15,23 @@ fn main() {
         exit(0);
     }
 
-    let hostname = env::args().nth(1).unwrap();
-    let config_path = env::args().nth(2).unwrap();
+    let hostname: String = env::args().nth(1).unwrap();
+    let config: String = read_config(env::args().nth(2).unwrap());
 
-    let prefix_from_web = get_address_from_web();
-    //let prefix_form_config = get_address_from_config(config_path.clone());
+    let address_from_config: String = get_address_from_config(&config, &hostname);
+    let address_from_web: String = get_address_from_web();
 
-    println!("{}", hostname);
-    println!("{}", config_path);
-    println!("{}", prefix_from_web);
-    //println!("{}", prefix_form_config);
+    println!("{}", address_from_config);
+    println!("{}", address_from_web);
 }
 
-fn get_address_from_config(config_path: String) -> String {
-    let config = fs::read_to_string(config_path)
-        .expect("Should have been able to read the file");
-    return config;
+fn get_address_from_config(config: &String, hostname: &String) -> String {
+    for line in config.lines() {
+        if line.contains(hostname) && line.contains("AAAA") {
+            return line.to_string();
+        }
+    }
+    return "".to_string();
 }
 
 fn get_address_from_web() -> String {
@@ -46,15 +49,17 @@ fn get_address_from_web() -> String {
     }
 
     // Convert it to `String`
-    let mut body = String::from_utf8(data).expect("body is not valid UTF8!");
-
-    for i in 0..body.len() {
-        //println!("{}", i);
-    }
-
+    let body: String = String::from_utf8(data).expect("body is not valid UTF8!");
     return body;
 }
 
+fn read_config(config_path: String) -> String {
+    let mut file = File::open(config_path).expect("Can't open file!");
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).expect("Can't read file!");
+
+    return contents.to_string();
+}
 
 fn help() {
     println!("provide a hostname to check against and the path to your bind zone-file, where your Records are located.
