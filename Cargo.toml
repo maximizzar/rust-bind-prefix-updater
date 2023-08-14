@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 curl = "0.4.44"
+regex = "1.9.1"
