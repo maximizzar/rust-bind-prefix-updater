@@ -1,7 +1,7 @@
 use regex::Regex;
 use ipnet::*;
 
-use std::io::Read;
+use std::io::{Read, Write};
 use std::str::FromStr;
 
 fn main() {
@@ -114,7 +114,9 @@ fn update_config(config: &String, address_from_config: &Ipv6Net, address_from_we
 }
 
 fn write_config(config_path: &String, config: &String) {
-    std::fs::write(config_path, config).expect("config couldn't be written to filesystem");
+    let mut file = std::fs::File::create(config_path).expect("Wasn't able to create file!");
+
+    file.write_all(config.as_ref()).expect("config couldn't be written");
 }
 fn help() {
     println!("To function this tool needs some arguments:\n\
