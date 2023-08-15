@@ -1,11 +1,11 @@
 use curl::easy::Easy;
 use regex::Regex;
+use ipnet::*;
 
 use std::env;
 use std::env::args;
 use std::fs::File;
 use std::io::Read;
-use std::net::Ipv6Addr;
 use std::process::exit;
 use std::str::FromStr;
 
@@ -16,18 +16,27 @@ fn main() {
         help();
         exit(0);
     }
-
+    // put cli arguments into variables
     let hostname: String = env::args().nth(1).unwrap();
     let config: String = read_config(env::args().nth(2).unwrap());
+    let _netmask:u8 = env::args().nth(3).unwrap().parse().unwrap();
 
-    let address_from_config: Ipv6Addr = get_address_from_config(&config, &hostname);
-    let address_from_web: Ipv6Addr = get_address_from_web();
+    let address_from_config = get_address_from_config(&config, &hostname);
+    let address_from_web = get_address_from_web();
 
-    println!("{}", address_from_config);
-    println!("{}", address_from_web);
+    println!("{}\n{}", address_from_config.network(), address_from_web.network());
+
+    compare_prefixes(address_from_config, address_from_web);
+    println!("prefixes differ from each other. Start to update config now!");
 }
 
-fn get_address_from_config(config: &String, hostname: &String) -> Ipv6Addr {
+fn compare_prefixes(address_from_config: Ipv6Net, address_from_web: Ipv6Net) {
+    if address_from_config.network() == address_from_web.network() {
+        exit(0);
+    }
+}
+
+fn get_address_from_config(config: &String, hostname: &String) -> Ipv6Net {
     let mut host_record = String::new();
     for line in config.lines() {
         if line.contains(hostname) && line.contains("AAAA") {
@@ -43,9 +52,11 @@ fn get_address_from_config(config: &String, hostname: &String) -> Ipv6Addr {
         let _ = &prefix_in_config[0].clone_into(&mut prefix);
     }
     host_record = host_record.strip_prefix(&prefix).unwrap().to_string();
-    return Ipv6Addr::from_str(host_record.as_str()).unwrap();
+    host_record += &*"/64".to_string();
+
+    return Ipv6Net::from_str(host_record.as_str()).unwrap();
 }
-fn get_address_from_web() -> Ipv6Addr {
+fn get_address_from_web() -> Ipv6Net {
     // First write everything into a `Vec<u8>`
     let mut data = Vec::new();
     let mut handle = Easy::new();
@@ -75,8 +86,9 @@ fn get_address_from_web() -> Ipv6Addr {
     //Remove prefix and suffix from returned body
     body = body.strip_prefix(&prefix).unwrap().to_string();
     body = body.strip_suffix(&suffix).unwrap().to_string();
+    body += &*"/64".to_string();
 
-    return Ipv6Addr::from_str(body.as_str()).unwrap();
+    return Ipv6Net::from_str(body.as_str()).unwrap();
 }
 
 fn read_config(config_path: String) -> String {
