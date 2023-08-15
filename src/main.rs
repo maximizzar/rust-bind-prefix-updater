@@ -1,42 +1,47 @@
-use curl::easy::Easy;
 use regex::Regex;
 use ipnet::*;
 
-use std::env;
-use std::env::args;
-use std::fs::File;
 use std::io::Read;
-use std::process::exit;
 use std::str::FromStr;
 
 fn main() {
-    let args: Vec<_> = args().collect();
+    let args: Vec<_> = std::env::args().collect();
 
     if args.len() < 2 {
         help();
-        exit(0);
+        std::process::exit(0);
     }
     // put cli arguments into variables
-    let hostname: String = env::args().nth(1).unwrap();
-    let config: String = read_config(env::args().nth(2).unwrap());
-    let _netmask:u8 = env::args().nth(3).unwrap().parse().unwrap();
+    let hostname: String = std::env::args().nth(1).unwrap();
+    let config_path: &String = &std::env::args().nth(2).unwrap();
+    let netmask:u8 = std::env::args().nth(3).unwrap().parse().unwrap();
 
-    let address_from_config = get_address_from_config(&config, &hostname);
-    let address_from_web = get_address_from_web();
+    //load data into variables
+    let mut config: String = read_config(config_path);
+    let address_from_config = get_address_from_config(&config, &hostname, &netmask);
+    let address_from_web = get_address_from_web(&netmask);
 
-    println!("{}\n{}", address_from_config.network(), address_from_web.network());
+    compare_prefixes(&address_from_config, &address_from_web);
+    println!("prefixes differ from each other. Start to update config now!\n");
 
-    compare_prefixes(address_from_config, address_from_web);
-    println!("prefixes differ from each other. Start to update config now!");
+    config = update_config(&config, &address_from_config, &address_from_web);
+
+    println!("{}", config);
+
+    write_config(&config_path, &config);
+    println!(r#"Changed prefix from "{}" to "{}""#,
+             address_from_config.network().to_string(),
+             address_from_web.network().to_string()
+    );
 }
 
-fn compare_prefixes(address_from_config: Ipv6Net, address_from_web: Ipv6Net) {
+fn compare_prefixes(address_from_config: &Ipv6Net, address_from_web: &Ipv6Net) {
     if address_from_config.network() == address_from_web.network() {
-        exit(0);
+        std::process::exit(0);
     }
 }
 
-fn get_address_from_config(config: &String, hostname: &String) -> Ipv6Net {
+fn get_address_from_config(config: &String, hostname: &String, netmask: &u8) -> Ipv6Net {
     let mut host_record = String::new();
     for line in config.lines() {
         if line.contains(hostname) && line.contains("AAAA") {
@@ -52,14 +57,15 @@ fn get_address_from_config(config: &String, hostname: &String) -> Ipv6Net {
         let _ = &prefix_in_config[0].clone_into(&mut prefix);
     }
     host_record = host_record.strip_prefix(&prefix).unwrap().to_string();
-    host_record += &*"/64".to_string();
+    host_record += &*"/".to_string();
+    host_record += &netmask.to_string();
 
     return Ipv6Net::from_str(host_record.as_str()).unwrap();
 }
-fn get_address_from_web() -> Ipv6Net {
+fn get_address_from_web(netmask: &u8) -> Ipv6Net {
     // First write everything into a `Vec<u8>`
     let mut data = Vec::new();
-    let mut handle = Easy::new();
+    let mut handle = curl::easy::Easy::new();
     handle.url("https://6.myip.is/").unwrap();
     {
         let mut transfer = handle.transfer();
@@ -86,22 +92,33 @@ fn get_address_from_web() -> Ipv6Net {
     //Remove prefix and suffix from returned body
     body = body.strip_prefix(&prefix).unwrap().to_string();
     body = body.strip_suffix(&suffix).unwrap().to_string();
-    body += &*"/64".to_string();
+    body += &*"/".to_string();
+    body += &netmask.to_string();
 
     return Ipv6Net::from_str(body.as_str()).unwrap();
 }
 
-fn read_config(config_path: String) -> String {
-    let mut file = File::open(config_path).expect("Can't open file!");
+fn read_config(config_path: &String) -> String {
+    let mut file = std::fs::File::open(config_path).expect("Can't open file!");
     let mut contents = String::new();
     file.read_to_string(&mut contents).expect("Can't read file!");
 
     return contents.to_string();
 }
 
-fn help() {
-    println!("provide a hostname to check against and the path to your bind zone-file, where your Records are located.
-                -> prefix-swapper hostname path/to/config
+fn update_config(config: &String, address_from_config: &Ipv6Net, address_from_web: &Ipv6Net) -> String {
+    return config.replace(
+        address_from_config.network().to_string().as_str(),
+        address_from_web.network().to_string().as_str()
+    );
+}
 
-                It makes sense to add the program into a cronjob =)")
+fn write_config(config_path: &String, config: &String) {
+    std::fs::write(config_path, config).expect("config couldn't be written to filesystem");
+}
+fn help() {
+    println!("To function this tool needs some arguments:\n\
+    - record-name = the name of a record that has the desired prefix\
+    - config path = path to the file, where bind stores your records\
+    - netmask = how big the subnet ist as number (48, 64 ,...")
 }
