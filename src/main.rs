@@ -17,18 +17,14 @@ fn main() {
     let netmask:u8 = std::env::args().nth(3).unwrap().parse().unwrap();
 
     //load data into variables
-    let mut config: String = read_config(config_path);
+    let config: String = read_config(config_path);
     let address_from_config = get_address_from_config(&config, &hostname, &netmask);
     let address_from_web = get_address_from_web(&netmask);
 
     compare_prefixes(&address_from_config, &address_from_web);
     println!("prefixes differ from each other. Start to update config now!\n");
 
-    config = update_config(&config, &address_from_config, &address_from_web);
-
-    println!("{}", config);
-
-    write_config(&config_path, &config);
+    write_config(&config_path, update_config(&config, &address_from_config, &address_from_web));
     println!(r#"Changed prefix from "{}" to "{}""#,
              address_from_config.network().to_string(),
              address_from_web.network().to_string()
@@ -108,15 +104,15 @@ fn read_config(config_path: &String) -> String {
 
 fn update_config(config: &String, address_from_config: &Ipv6Net, address_from_web: &Ipv6Net) -> String {
     return config.replace(
-        address_from_config.network().to_string().as_str(),
-        address_from_web.network().to_string().as_str()
+        &address_from_config.network().to_string().strip_suffix("::").unwrap().to_string(),
+        &address_from_web.network().to_string().strip_suffix("::").unwrap()
     );
 }
+fn write_config(config_path: &String, config: String) {
+    let mut file = std::fs::File::create(config_path)
+        .expect("Wasn't able to create file!");
 
-fn write_config(config_path: &String, config: &String) {
-    let mut file = std::fs::File::create(config_path).expect("Wasn't able to create file!");
-
-    file.write_all(config.as_ref()).expect("config couldn't be written");
+    let _ = file.write_all(config.as_ref()).expect("config couldn't be written");
 }
 fn help() {
     println!("To function this tool needs some arguments:\n\
