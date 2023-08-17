@@ -1,0 +1,126 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            toolchain: x86_64-unknown-linux-musl
+          - arch: aarch64
+            toolchain: aarch64-unknown-linux-musl
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cargo cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ matrix.toolchain }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cross
+        run: cargo install --force cross
+
+      - name: Build
+        run: cross build --release --all-features --target ${{ matrix.toolchain }}
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: rust-bind-prefix-updater-linux-${{ matrix.arch }}
+          path: ./target/${{ matrix.toolchain }}/release/rust-bind-prefix-updater
+          if-no-files-found: error
+
+      - name: Upload manpages artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: manpages
+          path: ./target/${{ matrix.toolchain }}/release/manpages
+          if-no-files-found: error
+
+      - name: Upload completions artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: completions
+          path: ./target/${{ matrix.toolchain }}/release/completions
+          if-no-files-found: error
+
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cargo cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: x86_64-apple-darwin-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          target: x86_64-apple-darwin
+
+      - name: Build
+        run: cargo build --release --all-features --target x86_64-apple-darwin
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: rust-bind-prefix-updater-darwin-x86_64
+          path: ./target/x86_64-apple-darwin/release/rust-bind-prefix-updater
+          if-no-files-found: error
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cargo cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: x86_64-pc-windows-gnu-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install system dependencies
+        uses: msys2/setup-msys2@v2
+        with:
+          install: mingw-w64-x86_64-rust base-devel
+
+      - name: Build
+        shell: msys2 {0}
+        run: cargo build --release --all-features --target x86_64-pc-windows-gnu
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: rust-bind-prefix-updater-windows-x86_64
+          path: ./target/x86_64-pc-windows-gnu/release/rust-bind-prefix-updater.exe
+          if-no-files-found: error
