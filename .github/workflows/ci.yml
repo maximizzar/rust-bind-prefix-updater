@@ -45,20 +45,6 @@ jobs:
           path: ./target/${{ matrix.toolchain }}/release/rust-bind-prefix-updater
           if-no-files-found: error
 
-      - name: Upload manpages artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: manpages
-          path: ./target/${{ matrix.toolchain }}/release/manpages
-          if-no-files-found: error
-
-      - name: Upload completions artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: completions
-          path: ./target/${{ matrix.toolchain }}/release/completions
-          if-no-files-found: error
-
   build-mac:
     runs-on: macos-latest
     steps:
