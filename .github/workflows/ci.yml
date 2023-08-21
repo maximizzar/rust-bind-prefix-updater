@@ -32,8 +32,14 @@ jobs:
             target/
           key: ${{ matrix.toolchain }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: install librust-openssl-sys-dev
+        run: sudo apt install librust-openssl-sys-dev
+
       - name: Install cross
         run: cargo install --force cross
+
+      - name: Install pkg-config and libssl-dev
+        run: sudo apt-get install pkg-config libssl-dev
 
       - name: Build
         run: cross build --release --all-features --target ${{ matrix.toolchain }}
