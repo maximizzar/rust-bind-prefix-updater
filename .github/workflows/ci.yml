@@ -36,7 +36,7 @@ jobs:
         run: cargo install --force cross
 
       - name: Install libssl-dev
-        run: sudo apt install libssl-dev
+        run: sudo apt install openssl1.0 libssl1.0.0 libssl1.0-dev
 
       - name: Build
         run: cross build --release --all-features --target ${{ matrix.toolchain }}
