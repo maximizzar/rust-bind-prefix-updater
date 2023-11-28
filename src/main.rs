@@ -12,9 +12,9 @@ fn main() {
         std::process::exit(0);
     }
     // put cli arguments into variables
-    let hostname: String = std::env::args().nth(1).unwrap();
-    let config_path: &String = &std::env::args().nth(2).unwrap();
-    let netmask:u8 = std::env::args().nth(3).unwrap().parse().unwrap();
+    let hostname: String = args.get(1).unwrap().to_string();
+    let config_path: &String = args.get(2).unwrap();
+    let netmask:u8 = args.get(3).unwrap().parse().unwrap();
 
     //load data into variables
     let config: String = read_config(config_path);
