@@ -63,10 +63,7 @@ fn get_address_from_config(config: &String, hostname: &String, netmask: &u8) -> 
         let _ = &prefix_in_config[0].clone_into(&mut prefix);
     }
     host_record = host_record.strip_prefix(&prefix).unwrap().to_string();
-    host_record += &*"/".to_string();
-    host_record += &netmask.to_string();
-
-    return Ipv6Net::from_str(host_record.as_str()).unwrap();
+    return Ipv6Net::new(Ipv6Addr::from_str(host_record.as_str()).unwrap(), *netmask).unwrap();
 }
 fn read_config(config_path: &String) -> String {
     let mut file = std::fs::File::open(config_path).expect("Can't open file!");
