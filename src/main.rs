@@ -1,11 +1,16 @@
 mod web_ip_checker;
 
 use regex::Regex;
-use ipnet::*;
+use ipnet::Ipv6Net;
 
 use std::io::{Read, Write};
 use std::str::FromStr;
-use crate::web_ip_checker::MyIp;
+
+//struct BindRecord {
+//    hostname: &'static str,
+//    record_type: &'static str,
+//    record: Some(Ipv4Net, Ipv6Net, &'static str),
+//}
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();
@@ -22,7 +27,7 @@ fn main() {
     //load data into variables
     let config: String = read_config(config_path);
     let address_from_config = get_address_from_config(&config, &hostname, &prefix_size);
-    let address_from_web = MyIp::get_current_netmask(&prefix_size).unwrap();
+    let address_from_web = web_ip_checker::MyIp::get_ipv6_address(&prefix_size);
 
     compare_prefixes(&address_from_config, &address_from_web);
     println!("prefixes differ from each other. Start to update config now!\n");
@@ -32,6 +37,8 @@ fn main() {
              address_from_config.network().to_string(),
              address_from_web.network().to_string()
     );
+    //TODO: load config into vector
+    //let records: Vec<BindRecord> = vec![];
 }
 
 fn compare_prefixes(address_from_config: &Ipv6Net, address_from_web: &Ipv6Net) {

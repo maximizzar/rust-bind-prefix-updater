@@ -1,5 +1,5 @@
 use serde_json;
-use ipnet::*;
+use ipnet::Ipv6Net;
 use std::net::Ipv6Addr;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
@@ -9,17 +9,17 @@ pub struct MyIp {
     timestamp: i64,
 }
 impl MyIp {
-    pub fn get_current_netmask(network_prefix: &u8) -> Option<Ipv6Net> {
+    pub fn get_ipv6_address(prefix_length: &u8) -> Ipv6Net {
         let web_request = MyIp::web_request().unwrap();
-        Some(Ipv6Net::new(web_request.ip, *network_prefix).unwrap())
+        return Ipv6Net::new(web_request.ip, *prefix_length)
+            .expect("Failed to obtain an ipv6 address.");
     }
-    pub fn web_request() -> Option<MyIp> {
+    fn web_request() -> Option<MyIp> {
         let url = "https://6.myip.is/";
         match reqwest::blocking::get(url) {
             Ok(response) => {
                 if response.status() == reqwest::StatusCode::OK {
-                    let myip: MyIp = serde_json::from_str(response.text().unwrap().as_str()).unwrap();
-                    return Some(myip);
+                    return Some(serde_json::from_str(response.text().unwrap().as_str()).unwrap());
                 } else {
                     println!("Request failed: {}", response.status())
                 }
