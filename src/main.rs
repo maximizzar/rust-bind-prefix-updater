@@ -1,6 +1,7 @@
 mod web_ip_checker;
 
 use std::fs::File;
+use std::hash::Hash;
 use std::io::{Read, Write};
 use std::net::Ipv6Addr;
 use regex::Regex;
@@ -13,6 +14,13 @@ struct BindRecord {
     record: &'static str,
 }
 fn main() {
+    //TODO: load config into vector
+    //let records: Vec<BindRecord> = vec![];
+    let filepath = "src/db.maximizzar.io";
+
+    read(filepath);
+
+
     let args: Vec<_> = std::env::args().collect();
 
     if args.len() < 2 {
@@ -37,22 +45,30 @@ fn main() {
              address_from_config.network().to_string(),
              address_from_web.network().to_string()
     );
-    //TODO: load config into vector
-    //let records: Vec<BindRecord> = vec![];
-    let filepath = "/src/db.maximizzar.io";
-    read(filepath);
+
 }
 fn read(filepath: &'static str) {
     use std::fs::File;
-    use std::io::{self, prelude::*, BufReader};
+    use std::io::{prelude::*, BufReader};
 
     let bind_db_file = File::open(filepath)
         .expect(&*format!("Bind DB File under {} not found.", filepath));
     println!("{:?}", bind_db_file.metadata().unwrap());
     let reader = BufReader::new(bind_db_file);
+    let mut vector: Vec<Option<BindRecord>> = vec![];
 
-    for line in reader.lines() {
-        println!("{}", line.unwrap());
+    for mut line in reader.lines() {
+        if line.as_ref().unwrap().contains("AAAA") {
+            let mut inline_iterator = line.as_ref().unwrap().split_whitespace();
+            let mut record: BindRecord = BindRecord {
+                hostname: "",
+                record_type: "",
+                record: "",
+            };
+            vector.push(Some(record));
+        } else {
+            vector.push(None);
+        }
     }
 }
 
