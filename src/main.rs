@@ -1,17 +1,17 @@
 mod web_ip_checker;
 
+use std::fs::File;
+use std::io::{Read, Write};
+use std::net::Ipv6Addr;
 use regex::Regex;
 use ipnet::Ipv6Net;
 
-use std::io::{Read, Write};
 use std::str::FromStr;
-
-//struct BindRecord {
-//    hostname: &'static str,
-//    record_type: &'static str,
-//    record: Some(Ipv4Net, Ipv6Net, &'static str),
-//}
-
+struct BindRecord {
+    hostname: &'static str,
+    record_type: &'static str,
+    record: &'static str,
+}
 fn main() {
     let args: Vec<_> = std::env::args().collect();
 
@@ -39,6 +39,21 @@ fn main() {
     );
     //TODO: load config into vector
     //let records: Vec<BindRecord> = vec![];
+    let filepath = "/src/db.maximizzar.io";
+    read(filepath);
+}
+fn read(filepath: &'static str) {
+    use std::fs::File;
+    use std::io::{self, prelude::*, BufReader};
+
+    let bind_db_file = File::open(filepath)
+        .expect(&*format!("Bind DB File under {} not found.", filepath));
+    println!("{:?}", bind_db_file.metadata().unwrap());
+    let reader = BufReader::new(bind_db_file);
+
+    for line in reader.lines() {
+        println!("{}", line.unwrap());
+    }
 }
 
 fn compare_prefixes(address_from_config: &Ipv6Net, address_from_web: &Ipv6Net) {
