@@ -2,24 +2,26 @@ mod web_ip_checker;
 
 use std::fs::File;
 use std::hash::Hash;
-use std::io::{Read, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::net::Ipv6Addr;
 use regex::Regex;
-use ipnet::Ipv6Net;
+use ipnet::{Ipv4Net, Ipv6Net};
 
 use std::str::FromStr;
+
+enum RecordType {
+    A(Ipv4Net),
+    AAAA(Ipv6Net),
+    CNAME(String),
+}
 struct BindRecord {
-    hostname: &'static str,
-    record_type: &'static str,
-    record: &'static str,
+    hostname: String,
+    record_type: String,
+    record: RecordType,
 }
 fn main() {
-    //TODO: load config into vector
-    //let records: Vec<BindRecord> = vec![];
     let filepath = "src/db.maximizzar.io";
-
     read(filepath);
-
 
     let args: Vec<_> = std::env::args().collect();
 
@@ -48,30 +50,33 @@ fn main() {
 
 }
 fn read(filepath: &'static str) {
-    use std::fs::File;
-    use std::io::{prelude::*, BufReader};
-
     let bind_db_file = File::open(filepath)
         .expect(&*format!("Bind DB File under {} not found.", filepath));
-    println!("{:?}", bind_db_file.metadata().unwrap());
     let reader = BufReader::new(bind_db_file);
-    let mut vector: Vec<Option<BindRecord>> = vec![];
 
-    for mut line in reader.lines() {
-        if line.as_ref().unwrap().contains("AAAA") {
-            let mut inline_iterator = line.as_ref().unwrap().split_whitespace();
-            let mut record: BindRecord = BindRecord {
-                hostname: "",
-                record_type: "",
-                record: "",
-            };
-            vector.push(Some(record));
-        } else {
-            vector.push(None);
+    for line in reader.lines() {
+        let mut line_part = line.unwrap();
+
+        //for header in line_part.split_whitespace() {
+        //    print!("{}", &header);
+
+        //    if header.contains(")") {
+        //        break;
+        //    }
+        //}
+        println!();
+
+        for lp in line_part.split_whitespace() {
+
+            if line_part.contains(" A ")
+                || line_part.contains(" AAAA ")
+                || line_part.contains(" CNAME ") {
+                print!("{}", &lp);
+            }
+
         }
     }
 }
-
 fn compare_prefixes(address_from_config: &Ipv6Net, address_from_web: &Ipv6Net) {
     if address_from_config.network() == address_from_web.network() {
         std::process::exit(0);
