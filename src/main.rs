@@ -1,28 +1,25 @@
 mod web_ip_checker;
+mod bind;
 
 use std::fs::File;
-use std::hash::Hash;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{Read, Write};
 use std::net::Ipv6Addr;
 use regex::Regex;
-use ipnet::{Ipv4Net, Ipv6Net};
+use ipnet::{Ipv6Net};
 
 use std::str::FromStr;
 
-enum RecordType {
-    A(Ipv4Net),
-    AAAA(Ipv6Net),
-    CNAME(String),
-}
-struct BindRecord {
-    hostname: String,
-    record_type: String,
-    record: RecordType,
-}
 fn main() {
-    let filepath = "src/db.maximizzar.io";
-    read(filepath);
+    //new program
+    let prefix_size: u8 = 56;
+    let mut ipv6_addresses: Vec<Ipv6Net> = vec![];
 
+    bind::get_ipv6_addresses_from_config("src/db.maximizzar.io", &mut ipv6_addresses, &prefix_size);
+    for ipv6_address in ipv6_addresses {
+        println!("{}", ipv6_address);
+    }
+
+    // old program
     let args: Vec<_> = std::env::args().collect();
 
     if args.len() < 2 {
@@ -39,6 +36,8 @@ fn main() {
     let address_from_config = get_address_from_config(&config, &hostname, &prefix_size);
     let address_from_web = web_ip_checker::MyIp::get_ipv6_address(&prefix_size);
 
+
+
     compare_prefixes(&address_from_config, &address_from_web);
     println!("prefixes differ from each other. Start to update config now!\n");
 
@@ -47,35 +46,6 @@ fn main() {
              address_from_config.network().to_string(),
              address_from_web.network().to_string()
     );
-
-}
-fn read(filepath: &'static str) {
-    let bind_db_file = File::open(filepath)
-        .expect(&*format!("Bind DB File under {} not found.", filepath));
-    let reader = BufReader::new(bind_db_file);
-
-    for line in reader.lines() {
-        let mut line_part = line.unwrap();
-
-        //for header in line_part.split_whitespace() {
-        //    print!("{}", &header);
-
-        //    if header.contains(")") {
-        //        break;
-        //    }
-        //}
-        println!();
-
-        for lp in line_part.split_whitespace() {
-
-            if line_part.contains(" A ")
-                || line_part.contains(" AAAA ")
-                || line_part.contains(" CNAME ") {
-                print!("{}", &lp);
-            }
-
-        }
-    }
 }
 fn compare_prefixes(address_from_config: &Ipv6Net, address_from_web: &Ipv6Net) {
     if address_from_config.network() == address_from_web.network() {
@@ -101,8 +71,9 @@ fn get_address_from_config(config: &String, hostname: &String, netmask: &u8) -> 
     host_record = host_record.strip_prefix(&prefix).unwrap().to_string();
     return Ipv6Net::new(Ipv6Addr::from_str(host_record.as_str()).unwrap(), *netmask).unwrap();
 }
+
 fn read_config(config_path: &String) -> String {
-    let mut file = std::fs::File::open(config_path).expect("Can't open file!");
+    let mut file = File::open(config_path).expect("Can't open file!");
     let mut contents = String::new();
     file.read_to_string(&mut contents).expect("Can't read file!");
 
@@ -112,15 +83,17 @@ fn read_config(config_path: &String) -> String {
 fn update_config(config: &String, address_from_config: &Ipv6Net, address_from_web: &Ipv6Net) -> String {
     return config.replace(
         &address_from_config.network().to_string().strip_suffix("::").unwrap().to_string(),
-        &address_from_web.network().to_string().strip_suffix("::").unwrap()
+        &address_from_web.network().to_string().strip_suffix("::").unwrap(),
     );
 }
+
 fn write_config(config_path: &String, config: String) {
-    let mut file = std::fs::File::create(config_path)
+    let mut file = File::create(config_path)
         .expect("Wasn't able to create file!");
 
     let _ = file.write_all(config.as_ref()).expect("config couldn't be written");
 }
+
 fn help() {
     println!("To function this tool needs some arguments:\n\
     - record-name = the name of a record that has the desired prefix\
