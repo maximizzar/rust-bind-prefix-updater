@@ -11,10 +11,10 @@ use std::str::FromStr;
 
 fn main() {
     //new program
-    let prefix_size: u8 = 56;
+    let prefix_size: u8 = 64;
     let mut ipv6_addresses: Vec<Ipv6Net> = vec![];
 
-    bind::get_ipv6_addresses_from_config("src/db.maximizzar.io", &mut ipv6_addresses, &prefix_size);
+    bind::get_ipv6_addresses_from_config("src/db.maximizzar.io", &mut ipv6_addresses, prefix_size);
     for ipv6_address in ipv6_addresses {
         println!("{}", ipv6_address);
     }
