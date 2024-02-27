@@ -4,7 +4,7 @@ use std::net::Ipv6Addr;
 use std::str::FromStr;
 use ipnet::Ipv6Net;
 
-pub(crate) fn get_ipv6_addresses_from_config(filepath: &'static str, ipv6_addresses: &mut Vec<Ipv6Net>, prefix_size: &u8) {
+pub(crate) fn get_ipv6_addresses_from_config(filepath: &'static str, ipv6_addresses: &mut Vec<Ipv6Net>, prefix_size: u8) {
     let bind_db_file = File::open(filepath)
         .expect(&*format!("Bind DB File under {} not found.", filepath));
     let reader = BufReader::new(bind_db_file);
@@ -14,7 +14,7 @@ pub(crate) fn get_ipv6_addresses_from_config(filepath: &'static str, ipv6_addres
             continue;
         }
         let ipv6_str = line.as_ref().unwrap().split_whitespace().last().unwrap();
-        ipv6_addresses.push(Ipv6Net::new(Ipv6Addr::from_str(ipv6_str).unwrap(), *prefix_size).unwrap());
+        ipv6_addresses.push(Ipv6Net::new(Ipv6Addr::from_str(ipv6_str).unwrap(), prefix_size).unwrap());
     }
 }
 
