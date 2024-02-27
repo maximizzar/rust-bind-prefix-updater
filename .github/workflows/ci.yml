@@ -44,8 +44,8 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
-          name: rust-bind-prefix-updater-linux-${{ matrix.arch }}
-          path: ./target/${{ matrix.toolchain }}/release/rust-bind-prefix-updater
+          name: cron-dl-linux-${{ matrix.arch }}
+          path: ./target/${{ matrix.toolchain }}/release/cron-dl
           if-no-files-found: error
 
   build-mac:
@@ -77,8 +77,8 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
-          name: rust-bind-prefix-updater-darwin-x86_64
-          path: ./target/x86_64-apple-darwin/release/rust-bind-prefix-updater
+          name: cron-dl-darwin-x86_64
+          path: ./target/x86_64-apple-darwin/release/cron-dl
           if-no-files-found: error
 
   build-windows:
@@ -110,6 +110,6 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
-          name: rust-bind-prefix-updater-windows-x86_64
-          path: ./target/x86_64-pc-windows-gnu/release/rust-bind-prefix-updater.exe
+          name: cron-dl-windows-x86_64
+          path: ./target/x86_64-pc-windows-gnu/release/cron-dl.exe
           if-no-files-found: error
