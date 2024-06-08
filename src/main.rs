@@ -8,6 +8,18 @@ use regex::Regex;
 use ipnet::{Ipv6Net};
 
 use std::str::FromStr;
+fn change_ipv6_prefix(ipv6_address: Ipv6Net, prefix_new: Vec<u16>, prefix_size: u8) -> Ipv6Net {
+    let host_segments: Vec<u16> = ipv6_address.addr().segments().iter()
+        .zip(ipv6_address.network().segments().iter())
+        .map(|(x,y)| x - y).collect();
+
+    let segments: Vec<u16> = prefix_new.iter()
+        .zip(host_segments.iter())
+        .map(|(x, y)| x + y).collect();
+
+    return Ipv6Net::new(Ipv6Addr::from([segments[0], segments[1], segments[2], segments[3],
+        segments[4], segments[5], segments[6], segments[7]]), prefix_size).unwrap();
+}
 
 fn main() {
     //new program
