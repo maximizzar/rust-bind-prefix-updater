@@ -24,10 +24,6 @@ fn get_ipv6_address_from_record_db_line(record_db_line: &str, prefix_size: u8) -
     return None
 }
 
-fn update_ipv6_address_in_record_db_line(record_db_line: &str, old_address: Ipv6Net, new_address: Ipv6Net) -> String {
-    return record_db_line.replace(old_address.addr().to_string().as_str(), new_address.addr().to_string().as_str());
-}
-
 fn change_ipv6_prefix(ipv6_address: Ipv6Net, prefix_new: &Vec<u16>, prefix_size: u8) -> Ipv6Net {
     let host_segments: Vec<u16> = ipv6_address.addr().segments().iter()
         .zip(ipv6_address.network().segments().iter())
@@ -41,94 +37,66 @@ fn change_ipv6_prefix(ipv6_address: Ipv6Net, prefix_new: &Vec<u16>, prefix_size:
         segments[4], segments[5], segments[6], segments[7]]), prefix_size).unwrap();
 }
 
-fn main() {
-    //new program
-    let prefix_size: u8 = 64;
-    let mut ipv6_addresses: Vec<Ipv6Net> = vec![];
+fn update_host(hostname: &String, record_db_line: &String, prefix: &Vec<u16>, prefix_size: u8) -> Option<String> {
+    if record_db_line.contains(hostname) && record_db_line.contains("AAAA") {
+        let ipv6_address = get_ipv6_address_from_record_db_line(record_db_line, prefix_size)
+            .expect(format!("Ip-address isn't correct. {}", record_db_line).as_str());
 
-    bind::get_ipv6_addresses_from_config("src/db.maximizzar.io", &mut ipv6_addresses, prefix_size);
-    for ipv6_address in ipv6_addresses {
-        println!("{}", ipv6_address);
-    }
-
-    // old program
-    let args: Vec<_> = std::env::args().collect();
-
-    if args.len() < 2 {
-        help();
-        std::process::exit(0);
-    }
-    // put cli arguments into variables
-    let hostname: String = args.get(1).unwrap().to_string();
-    let config_path: &String = args.get(2).unwrap();
-    let prefix_size: u8 = args.get(3).unwrap().parse().unwrap();
-
-    //load data into variables
-    let config: String = read_config(config_path);
-    let address_from_config = get_address_from_config(&config, &hostname, &prefix_size);
-    let address_from_web = web_ip_checker::MyIp::get_ipv6_address(&prefix_size);
-
-
-
-    compare_prefixes(&address_from_config, &address_from_web);
-    println!("prefixes differ from each other. Start to update config now!\n");
-
-    write_config(&config_path, update_config(&config, &address_from_config, &address_from_web));
-    println!(r#"Changed prefix from "{}" to "{}""#,
-             address_from_config.network().to_string(),
-             address_from_web.network().to_string()
-    );
-}
-fn compare_prefixes(address_from_config: &Ipv6Net, address_from_web: &Ipv6Net) {
-    if address_from_config.network() == address_from_web.network() {
-        std::process::exit(0);
-    }
-}
-
-fn get_address_from_config(config: &String, hostname: &String, netmask: &u8) -> Ipv6Net {
-    let mut host_record = String::new();
-    for line in config.lines() {
-        if line.contains(hostname) && line.contains("AAAA") {
-            host_record = line.to_string();
+        for i in 0..ipv6_address.network().segments().len() {
+            if ipv6_address.network().segments()[i] != prefix[i] {
+                let new_ipv6_address = change_ipv6_prefix(ipv6_address, &prefix, prefix_size);
+                return Some(record_db_line.replace(ipv6_address.addr().to_string().as_str(), new_ipv6_address.addr().to_string().as_str()));
+            }
         }
     }
-    let mut prefix = String::new();
-    {
-        let re: Regex = Regex::new(r#"(\w+\s+)(IN\s+)(AAAA\s+)"#).unwrap();
-        let Some(prefix_in_config) = re.captures(host_record.as_ref()) else {
-            panic!("AAAA-record for {} wasn't present in config!", hostname.as_str());
-        };
-        let _ = &prefix_in_config[0].clone_into(&mut prefix);
+    return None
+}
+
+fn write_record_db(record_db_path: &String, record_db: &Vec<String>) {
+    std::fs::write(record_db_path, record_db.iter().map(|str: &String| format!("{}\n", str.as_str())).collect::<String>())
+        .expect("Failed to write to file.");
+}
+
+fn main() {
+    let mut all_prefixes_correct = true;
+    let args = command!()
+        .about("Define hostnames from your Bind config in a json and update their v6 Prefix.\nCurrently only myip.is web-requests are supported to gather the Prefix.")
+        .version("2.0.0")
+        .arg(Arg::new("config").long("config").short('f').help("Path to the json config").required(true))
+        .arg(Arg::new("dry-run").long("dry-run").help("Output to Console, not to disk").action(ArgAction::SetTrue))
+        .get_matches();
+
+    let config_path = args.get_one::<String>("config").unwrap().to_string();
+    let config: Config = serde_json::from_str(&*std::fs::read_to_string(&config_path).unwrap()).unwrap();
+    let mut record_db: Vec<String> = std::fs::read_to_string(&config.record_db_path)
+        .expect("Failed to read Binds Record db")
+        .lines().map(|line| line.to_string()).collect();
+
+    let prefix: Vec<u16> = Vec::from(ip_checker::MyIp::get_ipv6_address(config.prefix_size).network().segments());
+
+    for i in 0..record_db.len() {
+        for host in &config.hosts {
+            let new_line = update_host(host, &mut record_db[i], &prefix, config.prefix_size);
+            if new_line.is_some() {
+                all_prefixes_correct = false;
+                if args.get_flag("dry-run") {
+                    println!("old: {}\nnew: {}\n", record_db[i], new_line.as_ref().unwrap());
+                }
+                record_db[i] = new_line.unwrap().to_string();
+            }
+        }
     }
-    host_record = host_record.strip_prefix(&prefix).unwrap().to_string();
-    return Ipv6Net::new(Ipv6Addr::from_str(host_record.as_str()).unwrap(), *netmask).unwrap();
-}
 
-fn read_config(config_path: &String) -> String {
-    let mut file = File::open(config_path).expect("Can't open file!");
-    let mut contents = String::new();
-    file.read_to_string(&mut contents).expect("Can't read file!");
+    if all_prefixes_correct {
+        if args.get_flag("dry-run") {
+            println!("No updates needed!");
+        }
+        std::process::exit(0);
+    }
 
-    return contents.to_string();
-}
-
-fn update_config(config: &String, address_from_config: &Ipv6Net, address_from_web: &Ipv6Net) -> String {
-    return config.replace(
-        &address_from_config.network().to_string().strip_suffix("::").unwrap().to_string(),
-        &address_from_web.network().to_string().strip_suffix("::").unwrap(),
-    );
-}
-
-fn write_config(config_path: &String, config: String) {
-    let mut file = File::create(config_path)
-        .expect("Wasn't able to create file!");
-
-    let _ = file.write_all(config.as_ref()).expect("config couldn't be written");
-}
-
-fn help() {
-    println!("To function this tool needs some arguments:\n\
-    - record-name = the name of a record that has the desired prefix\
-    - config path = path to the file, where bind stores your records\
-    - netmask = how big the subnet ist as number (48, 64 ,...")
+    if args.get_flag("dry-run") {
+        println!("All Prefixes where updated.")
+    } else {
+        write_record_db(&config.record_db_path, &record_db);
+    }
 }
