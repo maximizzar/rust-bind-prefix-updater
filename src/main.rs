@@ -1,14 +1,12 @@
-mod web_ip_checker;
-mod bind;
-
-use std::fs::File;
-use std::io::{Read, Write};
-use std::net::Ipv6Addr;
+mod ip_checker;
 
 use regex::Regex;
 use ipnet::{Ipv6Net};
+use std::net::Ipv6Addr;
 
 use std::str::FromStr;
+use clap::{Arg, ArgAction, command};
+
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Config {
     hosts: Vec<String>,
@@ -17,7 +15,7 @@ struct Config {
 }
 
 fn get_ipv6_address_from_record_db_line(record_db_line: &str, prefix_size: u8) -> Option<Ipv6Net> {
-    let re = Regex::new(r"([0-9a-fA-F]{1,4}:){7}([0-9a-fA-F]{1,4})").unwrap();
+    let re = Regex::new(r"(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))").unwrap();
 
     if let Some(capture) = re.captures(record_db_line) {
         let ipv6_address = capture.get(0).map_or("", |m| m.as_str());

@@ -8,12 +8,14 @@ pub struct MyIp {
     host: String,
     timestamp: i64,
 }
+
 impl MyIp {
-    pub fn get_ipv6_address(prefix_length: &u8) -> Ipv6Net {
+    pub fn get_ipv6_address(prefix_length: u8) -> Ipv6Net {
         let web_request = MyIp::web_request().unwrap();
-        return Ipv6Net::new(web_request.ip, *prefix_length)
+        return Ipv6Net::new(web_request.ip, prefix_length)
             .expect("Failed to obtain an ipv6 address.");
     }
+
     fn web_request() -> Option<MyIp> {
         let url = "https://6.myip.is/";
         match reqwest::blocking::get(url) {
