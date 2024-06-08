@@ -4,11 +4,33 @@ mod bind;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::Ipv6Addr;
+
 use regex::Regex;
 use ipnet::{Ipv6Net};
 
 use std::str::FromStr;
-fn change_ipv6_prefix(ipv6_address: Ipv6Net, prefix_new: Vec<u16>, prefix_size: u8) -> Ipv6Net {
+#[derive(serde::Serialize, serde::Deserialize)]
+struct Config {
+    hosts: Vec<String>,
+    prefix_size: u8,
+    record_db_path: String,
+}
+
+fn get_ipv6_address_from_record_db_line(record_db_line: &str, prefix_size: u8) -> Option<Ipv6Net> {
+    let re = Regex::new(r"([0-9a-fA-F]{1,4}:){7}([0-9a-fA-F]{1,4})").unwrap();
+
+    if let Some(capture) = re.captures(record_db_line) {
+        let ipv6_address = capture.get(0).map_or("", |m| m.as_str());
+        return Some(Ipv6Net::new(Ipv6Addr::from_str(ipv6_address).unwrap(), prefix_size).unwrap());
+    }
+    return None
+}
+
+fn update_ipv6_address_in_record_db_line(record_db_line: &str, old_address: Ipv6Net, new_address: Ipv6Net) -> String {
+    return record_db_line.replace(old_address.addr().to_string().as_str(), new_address.addr().to_string().as_str());
+}
+
+fn change_ipv6_prefix(ipv6_address: Ipv6Net, prefix_new: &Vec<u16>, prefix_size: u8) -> Ipv6Net {
     let host_segments: Vec<u16> = ipv6_address.addr().segments().iter()
         .zip(ipv6_address.network().segments().iter())
         .map(|(x,y)| x - y).collect();
